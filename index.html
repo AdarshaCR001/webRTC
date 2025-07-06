@@ -5,27 +5,150 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebRTC QR Connect</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; color: #333; }
-        .container { max-width: 600px; margin: auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        h1, h2 { text-align: center; color: #333; }
-        .role-selection button, .action-button {
-            display: block; width: 80%; margin: 10px auto; padding: 12px;
-            background-color: #007bff; color: white; border: none; border-radius: 5px;
-            font-size: 16px; cursor: pointer; transition: background-color 0.3s;
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5; /* Slightly lighter grey */
+            color: #333;
+            line-height: 1.6;
         }
-        .role-selection button:hover, .action-button:hover { background-color: #0056b3; }
+        .container {
+            max-width: 650px; /* Slightly wider */
+            margin: 30px auto; /* More margin */
+            background-color: #ffffff;
+            padding: 25px;
+            border-radius: 12px; /* More rounded corners */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); /* Softer, more modern shadow */
+        }
+        h1 {
+            text-align: center;
+            color: #1A237E; /* Dark blue */
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+        h2 {
+            text-align: center;
+            color: #3F51B5; /* Indigo */
+            margin-top: 25px;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+        h3 {
+            text-align: center;
+            color: #5C6BC0; /* Lighter Indigo */
+            margin-top: 15px;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        /* Initial Role Selection Buttons */
+        #roleSelection button {
+            display: block;
+            width: 85%;
+            margin: 20px auto;
+            padding: 18px 25px;
+            background-color: #2196F3; /* Brighter Blue */
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.25s ease-out, transform 0.15s ease-out, box-shadow 0.25s ease-out;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.12);
+            text-transform: uppercase; /* Make text uppercase for more impact */
+            letter-spacing: 0.5px; /* Add some letter spacing */
+        }
+        #roleSelection button:hover {
+            background-color: #1976D2; /* Darker shade of the brighter blue */
+            box-shadow: 0 5px 10px rgba(0,0,0,0.18);
+            transform: translateY(-2px); /* Slight lift effect */
+        }
+        #roleSelection button:active {
+            background-color: #0D47A1; /* Even darker blue for active state */
+            transform: translateY(0px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        }
+
+        /* General Action Buttons (used within camera/viewer modes like 'Activate Camera', 'Scan QR') */
+        .action-button {
+            display: block;
+            width: 90%;
+            margin: 15px auto;
+            padding: 15px;
+            background-color: #3F51B5; /* Indigo */
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .action-button:hover {
+            background-color: #303F9F; /* Darker Indigo */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .action-button:active {
+            background-color: #1A237E; /* Even Darker Blue */
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
         .hidden { display: none; }
-        video { width: 100%; border-radius: 5px; background-color: #eee; margin-bottom: 10px;}
-        #qrCodeOffer, #qrCodeAnswer { margin: 20px auto; width: 256px; height: 256px; border: 1px solid #ccc; padding: 10px; box-sizing: content-box; }
-        #qrCodeOffer img, #qrCodeAnswer img { display: block; margin: auto; }
-        #statusMessages { text-align: center; margin-top: 15px; font-weight: bold; color: #555; }
-        .video-wrapper { position: relative; }
-        .controls { margin-bottom: 15px; text-align: center; }
-        .controls button {
-            background-color: #6c757d; color: white; border: none; border-radius: 5px;
-            padding: 8px 15px; margin: 5px; cursor: pointer;
+        video {
+            width: 100%;
+            border-radius: 8px; /* Consistent rounding */
+            background-color: #e0e0e0; /* Light grey background for video area */
+            margin-bottom: 15px;
+            border: 1px solid #ccc; /* Subtle border */
         }
-        .controls button:hover { background-color: #5a6268; }
+        #qrCodeOffer, #qrCodeAnswer {
+            margin: 25px auto; /* More spacing */
+            width: 256px; /* Keep size for QR readability */
+            height: 256px;
+            border: 2px solid #3F51B5; /* Themed border */
+            padding: 10px;
+            box-sizing: content-box;
+            border-radius: 8px; /* Rounded corners */
+            background-color: #f9f9f9; /* Light background for QR code */
+        }
+        #qrCodeOffer img, #qrCodeAnswer img { display: block; margin: auto; border-radius: 4px; } /* Slightly round img corners */
+        #statusMessages {
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            background-color: #e8eaf6; /* Light indigo background */
+            color: #3F51B5; /* Indigo text */
+            font-weight: 500; /* Medium weight */
+            font-size: 1.05em;
+        }
+        .video-wrapper { position: relative; margin-bottom: 10px; }
+        .controls { margin-bottom: 20px; text-align: center; }
+        .controls button { /* For smaller control buttons like Mute, Switch Cam, Home */
+            background-color: #5C6BC0; /* Lighter Indigo */
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 18px; /* More padding */
+            margin: 8px;
+            cursor: pointer;
+            font-size: 0.95em;
+            transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .controls button:hover {
+            background-color: #3F51B5; /* Indigo */
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        .controls button:active {
+            background-color: #303F9F; /* Darker Indigo */
+        }
+        /* Specific styling for cancel scan buttons if needed, otherwise they use .controls button */
+        #cameraScanAnswerContainer button, #viewerScanOfferContainer button {
+            margin-top: 10px; /* Add some space above cancel scan buttons */
+        }
+
         #cameraAnswerScannerVideo, #viewerOfferScannerVideo {transform: scaleX(-1);} /* Mirror view for easier QR scanning */
     </style>
 </head>
@@ -41,25 +164,36 @@
 
         <div id="cameraMode" class="hidden">
             <h2>Camera Mode</h2>
-            <div class="video-wrapper">
-                <video id="localVideo" autoplay muted playsinline></video>
+
+            <div id="cameraPreActivationDiv">
+                <!-- Offer QR code will be shown here first -->
+                <div id="cameraOfferQrCodeContainer" class="hidden">
+                    <h3>Scan this QR Code with Viewer Device</h3>
+                    <div id="qrCodeOffer"></div>
+                </div>
+                <button id="activateCameraButton" class="action-button hidden">Activate Camera & Prepare for Answer</button>
             </div>
-            <div class="controls">
-                <button id="startStreamingButton" class="action-button">Start Streaming & Show Offer QR</button>
-                <button id="scanAnswerButton" class="action-button hidden">Scan Viewer's Answer QR</button>
-                <button id="cameraMuteButton">Mute</button>
-                <button id="switchCameraButton">Switch Camera</button>
+
+            <div id="cameraActiveDiv" class="hidden">
+                <div class="video-wrapper">
+                    <video id="localVideo" autoplay muted playsinline></video>
+                </div>
+                <div class="controls">
+                    <!-- startStreamingButton is effectively replaced by the new flow -->
+                    <button id="scanAnswerButton" class="action-button hidden">Scan Viewer's Answer QR</button>
+                    <button id="cameraMuteButton">Mute</button>
+                    <button id="switchCameraButton" class="hidden">Switch Camera</button>
+                    <button onclick="goHome()">Back to Home</button>
+                </div>
+                <div id="cameraScanAnswerContainer" class="hidden">
+                    <h3>Point Camera at Viewer's Answer QR Code</h3>
+                    <video id="cameraAnswerScannerVideo" autoplay playsinline></video>
+                    <button onclick="stopScanAnswerQR()">Cancel Scan</button>
+                </div>
             </div>
-            <div id="cameraOfferQrCodeContainer" class="hidden">
-                <h3>Scan this QR Code with Viewer Device</h3>
-                <div id="qrCodeOffer"></div>
-            </div>
-            <div id="cameraScanAnswerContainer" class="hidden">
-                <h3>Point Camera at Viewer's Answer QR Code</h3>
-                <video id="cameraAnswerScannerVideo" autoplay playsinline></video>
-                <button onclick="stopScanAnswerQR()">Cancel Scan</button>
-            </div>
+            <button id="cameraModeHomeButton" onclick="goHome()" class="controls button hidden">Back to Home (Pre-activation)</button> <!-- General Home button for camera mode if needed before activation -->
         </div>
+
 
         <div id="viewerMode" class="hidden">
             <h2>Viewer Mode</h2>
@@ -69,6 +203,7 @@
             <div class="controls">
                 <button id="scanOfferButton" class="action-button">Scan Camera's Offer QR</button>
                 <button id="viewerMuteButton">Mute Remote</button>
+                <button onclick="goHome()">Back to Home</button>
             </div>
             <div id="viewerScanOfferContainer" class="hidden">
                 <h3>Point Camera at Camera's Offer QR Code</h3>
@@ -96,7 +231,10 @@
         const remoteVideo = document.getElementById('remoteVideo');
 
         // Camera specific elements
-        const startStreamingButton = document.getElementById('startStreamingButton');
+        const cameraPreActivationDiv = document.getElementById('cameraPreActivationDiv');
+        const cameraActiveDiv = document.getElementById('cameraActiveDiv');
+        const activateCameraButton = document.getElementById('activateCameraButton');
+        // const startStreamingButton = document.getElementById('startStreamingButton'); // Replaced by new flow
         const scanAnswerButton = document.getElementById('scanAnswerButton');
         const cameraMuteButton = document.getElementById('cameraMuteButton');
         const switchCameraButton = document.getElementById('switchCameraButton');
@@ -104,6 +242,7 @@
         const cameraOfferQrCodeContainer = document.getElementById('cameraOfferQrCodeContainer');
         const cameraScanAnswerContainer = document.getElementById('cameraScanAnswerContainer');
         const cameraAnswerScannerVideo = document.getElementById('cameraAnswerScannerVideo');
+        const cameraModeHomeButton = document.getElementById('cameraModeHomeButton');
 
 
         // Viewer specific elements
@@ -137,16 +276,88 @@
             role = selectedRole;
             roleSelectionDiv.classList.add('hidden');
             statusMessages.textContent = `Role selected: ${selectedRole}.`;
+
             if (role === 'camera') {
                 cameraModeDiv.classList.remove('hidden');
-                // Initialize QR code generator for offer
-                qrOffer = new QRCode(qrCodeOfferDiv, { width: 256, height: 256 });
+                cameraPreActivationDiv.classList.remove('hidden');
+                cameraActiveDiv.classList.add('hidden');
+                cameraModeHomeButton.classList.remove('hidden'); // Show home button for pre-activation stage
+
+                qrOffer = new QRCode(qrCodeOfferDiv, { width: 256, height: 256 }); // Initialize QR lib
+                initCameraModeAndShowOfferQR();
             } else if (role === 'viewer') {
                 viewerModeDiv.classList.remove('hidden');
-                // Initialize QR code generator for answer
-                qrAnswer = new QRCode(qrCodeAnswerDiv, { width: 256, height: 256 });
+                qrAnswer = new QRCode(qrCodeAnswerDiv, { width: 256, height: 256 }); // Initialize QR lib
+                // Viewer mode remains unchanged for now, scanOfferButton is its entry point
             }
         }
+
+        async function initCameraModeAndShowOfferQR() {
+            updateStatus("Camera Mode: Initializing and creating offer...");
+            initializePeerConnection(); // Initialize or re-initialize PC
+
+            // Tracks will be added later, after camera activation.
+            // For now, just create offer.
+            try {
+                const offerOptions = {
+                    offerToReceiveAudio: 0, // Viewer does not send audio to camera
+                    offerToReceiveVideo: 0  // Viewer does not send video to camera
+                };
+                const offer = await pc.createOffer(offerOptions);
+                await pc.setLocalDescription(offer);
+                updateStatus("Offer created. Waiting for ICE candidates to generate QR code...");
+                // QR code generation is handled by pc.onicecandidate when iceGatheringState is 'complete'
+                // activateCameraButton will be made visible there too.
+            } catch (e) {
+                updateStatus(`Error creating offer: ${e.toString()}`);
+                console.error("Error creating offer: ", e);
+            }
+        }
+
+        activateCameraButton.onclick = async () => {
+            updateStatus("Activating camera...");
+            cameraModeHomeButton.classList.add('hidden'); // Hide pre-activation home, active view has its own
+
+            // Start local stream (requests permissions)
+            await startLocalStream(); // Starts with default camera
+
+            if (!localStream) {
+                updateStatus("Failed to start camera. Please check permissions and try again.");
+                cameraModeHomeButton.classList.remove('hidden'); // Show pre-activation home again if camera fails
+                return;
+            }
+
+            // Add tracks to the existing peer connection
+            if (pc && localStream) {
+                let videoTrackAdded = pc.getSenders().some(s => s.track && s.track.kind === 'video');
+                let audioTrackAdded = pc.getSenders().some(s => s.track && s.track.kind === 'audio');
+
+                localStream.getTracks().forEach(track => {
+                    if (track.kind === 'video' && !videoTrackAdded) {
+                        pc.addTrack(track, localStream);
+                        updateStatus("Video track added to connection.");
+                    } else if (track.kind === 'audio' && !audioTrackAdded) {
+                        pc.addTrack(track, localStream);
+                        updateStatus("Audio track added to connection.");
+                    }
+                });
+                 // If PC connection is already established (e.g. re-activating camera after going home and back)
+                // and tracks were just added, it might require renegotiation.
+                // However, this flow assumes this is the first time tracks are added.
+            }
+
+            cameraPreActivationDiv.classList.add('hidden');
+            cameraActiveDiv.classList.remove('hidden');
+
+            if (pc && localStream) {
+                scanAnswerButton.classList.remove('hidden'); // Ready to scan answer
+                updateStatus("Camera activated. Point camera at Viewer's Answer QR when ready.");
+            } else {
+                 updateStatus("Camera activated, but there was an issue with stream or connection setup. Please try returning home and starting over.");
+                 // Ensure scan button is hidden if there's an issue
+                 scanAnswerButton.classList.add('hidden');
+            }
+        };
 
         function updateStatus(message) {
             console.log(message); // Also log to console for debugging
@@ -199,14 +410,47 @@
                 } else {
                     updateStatus("All ICE candidates gathered.");
                     if (role === 'camera' && pc.localDescription && pc.localDescription.type === 'offer') {
-                        qrOffer.makeCode(JSON.stringify(pc.localDescription));
-                        cameraOfferQrCodeContainer.classList.remove('hidden');
-                        updateStatus("Offer QR code generated. Scan with viewer device.");
-                        scanAnswerButton.classList.remove('hidden'); // Show button to scan viewer's answer
+                        const sdpOffer = pc.localDescription;
+                        console.log("Camera Role: Preparing to generate offer QR code. Local Description:", JSON.parse(JSON.stringify(sdpOffer))); // Deep copy for logging
+                        const sdpOfferString = JSON.stringify(sdpOffer);
+                        console.log("Camera Role: Stringified SDP Offer:", sdpOfferString);
+                        if (!qrCodeOfferDiv || qrCodeOfferDiv.offsetParent === null) {
+                            console.error("Error: qrCodeOfferDiv is not visible or not in DOM when trying to makeCode!");
+                        }
+                        try {
+                            // Make container visible first
+                            cameraOfferQrCodeContainer.classList.remove('hidden');
+                            // Now that the container (and thus qrCodeOfferDiv) is visible, generate the QR code.
+                            qrOffer.makeCode(sdpOfferString);
+                            updateStatus("Offer QR code generated. Viewer can scan it. Click 'Activate Camera' to proceed.");
+                            activateCameraButton.classList.remove('hidden'); // Show button to activate camera
+                            // scanAnswerButton is shown after camera activation
+                        } catch (e) {
+                            console.error("Error generating offer QR code with qrcodejs:", e);
+                            updateStatus("Error generating offer QR code. Check console.");
+                            cameraOfferQrCodeContainer.classList.add('hidden'); // Hide again if error
+                        }
                     } else if (role === 'viewer' && pc.localDescription && pc.localDescription.type === 'answer') {
-                        qrAnswer.makeCode(JSON.stringify(pc.localDescription));
-                        viewerAnswerQrCodeContainer.classList.remove('hidden');
-                        updateStatus("Answer QR code generated. Show to camera device.");
+                        const sdpAnswer = pc.localDescription;
+                        console.log("Viewer Role: Preparing to generate answer QR code. Local Description:", JSON.parse(JSON.stringify(sdpAnswer))); // Deep copy for logging
+                        const sdpAnswerString = JSON.stringify(sdpAnswer);
+                        console.log("Viewer Role: Stringified SDP Answer:", sdpAnswerString);
+
+                        try {
+                            // Make container visible first
+                            viewerAnswerQrCodeContainer.classList.remove('hidden');
+                            // Now that the container (and thus qrCodeAnswerDiv) is visible, generate the QR code.
+                            if (!qrCodeAnswerDiv || qrCodeAnswerDiv.offsetParent === null) {
+                                // This check is now more relevant AFTER making the parent visible.
+                                console.warn("Warning: qrCodeAnswerDiv might still not be rendered as expected immediately after removing 'hidden' class. QR generation might rely on async rendering updates.");
+                            }
+                            qrAnswer.makeCode(sdpAnswerString);
+                            updateStatus("Answer QR code generated. Show to camera device.");
+                        } catch (e) {
+                            console.error("Error generating answer QR code with qrcodejs:", e);
+                            updateStatus("Error generating answer QR code. Check console.");
+                            viewerAnswerQrCodeContainer.classList.add('hidden'); // Hide again if error
+                        }
                     }
                 }
             };
@@ -507,6 +751,69 @@
         };
 
         // --- End of Viewer Mode Implementation ---
+
+        function goHome() {
+            updateStatus("Returning to role selection...");
+
+            // Stop media streams
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            // Stop QR scanners and their streams/animation frames
+            stopScanAnswerQR(); // Handles cameraScannerStream and its animationFrameId
+            stopScanOfferQR();  // Handles viewerScannerStream and its animationFrameId
+            // animationFrameId is managed by the functions above
+
+            // Close PeerConnection
+            if (pc) {
+                pc.close();
+                pc = null;
+            }
+
+            // Reset video elements
+            localVideo.srcObject = null;
+            remoteVideo.srcObject = null;
+            cameraAnswerScannerVideo.srcObject = null;
+            viewerOfferScannerVideo.srcObject = null;
+
+            // Hide mode-specific divs
+            cameraModeDiv.classList.add('hidden');
+            viewerModeDiv.classList.add('hidden');
+
+            // Show role selection div
+            roleSelectionDiv.classList.remove('hidden');
+
+            // Reset UI elements in Camera Mode
+            cameraPreActivationDiv.classList.add('hidden'); // Hide pre-activation view
+            cameraActiveDiv.classList.add('hidden');       // Hide active camera view
+            cameraOfferQrCodeContainer.classList.add('hidden'); // Hide QR container within pre-activation
+            activateCameraButton.classList.add('hidden');    // Hide activate camera button
+            cameraModeHomeButton.classList.add('hidden');    // Hide pre-activation home button
+
+            cameraScanAnswerContainer.classList.add('hidden'); // Hide scanner within active view
+            scanAnswerButton.classList.add('hidden');          // Hide scan answer button within active view
+            qrCodeOfferDiv.innerHTML = '';                     // Clear any existing QR code
+            cameraMuteButton.textContent = 'Mute';             // Reset mute button text
+            switchCameraButton.classList.add('hidden');      // Reset switch camera button (will be re-evaluated on next camera start)
+
+
+            // Reset UI elements in Viewer Mode
+            viewerScanOfferContainer.classList.add('hidden');
+            viewerAnswerQrCodeContainer.classList.add('hidden');
+            scanOfferButton.classList.remove('hidden'); // Assuming this is the default state
+            qrCodeAnswerDiv.innerHTML = ''; // Clear any existing QR code
+            viewerMuteButton.textContent = 'Mute Remote';
+
+
+            // Reset role and status
+            role = null;
+            updateStatus("Welcome! Please select a role.");
+
+            // It might be good to re-check for video devices if going back home and selecting camera again
+            // but getConnectedVideoDevices is called within startLocalStream and selectRole->camera path
+            // For now, this reset is comprehensive.
+        }
     </script>
 </body>
 </html>
