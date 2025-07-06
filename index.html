@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC QR Connect</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; color: #333; }
+        .container { max-width: 600px; margin: auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1, h2 { text-align: center; color: #333; }
+        .role-selection button, .action-button {
+            display: block; width: 80%; margin: 10px auto; padding: 12px;
+            background-color: #007bff; color: white; border: none; border-radius: 5px;
+            font-size: 16px; cursor: pointer; transition: background-color 0.3s;
+        }
+        .role-selection button:hover, .action-button:hover { background-color: #0056b3; }
+        .hidden { display: none; }
+        video { width: 100%; border-radius: 5px; background-color: #eee; margin-bottom: 10px;}
+        #qrCodeOffer, #qrCodeAnswer { margin: 20px auto; width: 256px; height: 256px; border: 1px solid #ccc; padding: 10px; box-sizing: content-box; }
+        #qrCodeOffer img, #qrCodeAnswer img { display: block; margin: auto; }
+        #statusMessages { text-align: center; margin-top: 15px; font-weight: bold; color: #555; }
+        .video-wrapper { position: relative; }
+        .controls { margin-bottom: 15px; text-align: center; }
+        .controls button {
+            background-color: #6c757d; color: white; border: none; border-radius: 5px;
+            padding: 8px 15px; margin: 5px; cursor: pointer;
+        }
+        .controls button:hover { background-color: #5a6268; }
+        #cameraAnswerScannerVideo, #viewerOfferScannerVideo {transform: scaleX(-1);} /* Mirror view for easier QR scanning */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>WebRTC QR Connect</h1>
+
+        <div id="roleSelection">
+            <h2>Select Your Role</h2>
+            <button onclick="selectRole('camera')">Enter Camera Mode</button>
+            <button onclick="selectRole('viewer')">Enter Viewer Mode</button>
+        </div>
+
+        <div id="cameraMode" class="hidden">
+            <h2>Camera Mode</h2>
+            <div class="video-wrapper">
+                <video id="localVideo" autoplay muted playsinline></video>
+            </div>
+            <div class="controls">
+                <button id="startStreamingButton" class="action-button">Start Streaming & Show Offer QR</button>
+                <button id="scanAnswerButton" class="action-button hidden">Scan Viewer's Answer QR</button>
+                <button id="cameraMuteButton">Mute</button>
+                <button id="switchCameraButton">Switch Camera</button>
+            </div>
+            <div id="cameraOfferQrCodeContainer" class="hidden">
+                <h3>Scan this QR Code with Viewer Device</h3>
+                <div id="qrCodeOffer"></div>
+            </div>
+            <div id="cameraScanAnswerContainer" class="hidden">
+                <h3>Point Camera at Viewer's Answer QR Code</h3>
+                <video id="cameraAnswerScannerVideo" autoplay playsinline></video>
+                <button onclick="stopScanAnswerQR()">Cancel Scan</button>
+            </div>
+        </div>
+
+        <div id="viewerMode" class="hidden">
+            <h2>Viewer Mode</h2>
+            <div class="video-wrapper">
+                <video id="remoteVideo" autoplay playsinline></video>
+            </div>
+            <div class="controls">
+                <button id="scanOfferButton" class="action-button">Scan Camera's Offer QR</button>
+                <button id="viewerMuteButton">Mute Remote</button>
+            </div>
+            <div id="viewerScanOfferContainer" class="hidden">
+                <h3>Point Camera at Camera's Offer QR Code</h3>
+                <video id="viewerOfferScannerVideo" autoplay playsinline></video>
+                <button onclick="stopScanOfferQR()">Cancel Scan</button>
+            </div>
+            <div id="viewerAnswerQrCodeContainer" class="hidden">
+                <h3>Show this QR Code to Camera Device</h3>
+                <div id="qrCodeAnswer"></div>
+            </div>
+        </div>
+
+        <div id="statusMessages">Welcome! Please select a role.</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script>
+        const roleSelectionDiv = document.getElementById('roleSelection');
+        const cameraModeDiv = document.getElementById('cameraMode');
+        const viewerModeDiv = document.getElementById('viewerMode');
+        const statusMessages = document.getElementById('statusMessages');
+
+        const localVideo = document.getElementById('localVideo');
+        const remoteVideo = document.getElementById('remoteVideo');
+
+        // Camera specific elements
+        const startStreamingButton = document.getElementById('startStreamingButton');
+        const scanAnswerButton = document.getElementById('scanAnswerButton');
+        const cameraMuteButton = document.getElementById('cameraMuteButton');
+        const switchCameraButton = document.getElementById('switchCameraButton');
+        const qrCodeOfferDiv = document.getElementById('qrCodeOffer');
+        const cameraOfferQrCodeContainer = document.getElementById('cameraOfferQrCodeContainer');
+        const cameraScanAnswerContainer = document.getElementById('cameraScanAnswerContainer');
+        const cameraAnswerScannerVideo = document.getElementById('cameraAnswerScannerVideo');
+
+
+        // Viewer specific elements
+        const scanOfferButton = document.getElementById('scanOfferButton');
+        const viewerMuteButton = document.getElementById('viewerMuteButton');
+        const qrCodeAnswerDiv = document.getElementById('qrCodeAnswer');
+        const viewerScanOfferContainer = document.getElementById('viewerScanOfferContainer');
+        const viewerOfferScannerVideo = document.getElementById('viewerOfferScannerVideo');
+        const viewerAnswerQrCodeContainer = document.getElementById('viewerAnswerQrCodeContainer');
+
+
+        let localStream;
+        let pc; // RTCPeerConnection
+        let role; // 'camera' or 'viewer'
+        let qrOffer; // For camera to generate offer QR
+        let qrAnswer; // For viewer to generate answer QR
+
+        let cameraScannerStream; // Stream for camera role to scan viewer's answer QR
+        let viewerScannerStream; // Stream for viewer role to scan camera's offer QR
+        let animationFrameId;
+
+
+        const iceConfiguration = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
+
+        function selectRole(selectedRole) {
+            role = selectedRole;
+            roleSelectionDiv.classList.add('hidden');
+            statusMessages.textContent = `Role selected: ${selectedRole}.`;
+            if (role === 'camera') {
+                cameraModeDiv.classList.remove('hidden');
+                // Initialize QR code generator for offer
+                qrOffer = new QRCode(qrCodeOfferDiv, { width: 256, height: 256 });
+            } else if (role === 'viewer') {
+                viewerModeDiv.classList.remove('hidden');
+                // Initialize QR code generator for answer
+                qrAnswer = new QRCode(qrCodeAnswerDiv, { width: 256, height: 256 });
+            }
+        }
+
+        function updateStatus(message) {
+            console.log(message); // Also log to console for debugging
+            statusMessages.textContent = message;
+        }
+
+        function stopScanOfferQR() {
+            if (viewerScannerStream) {
+                viewerScannerStream.getTracks().forEach(track => track.stop());
+                viewerScannerStream = null;
+            }
+            viewerOfferScannerVideo.srcObject = null;
+            viewerScanOfferContainer.classList.add('hidden');
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            updateStatus("Viewer QR scanning cancelled.");
+        }
+
+        function stopScanAnswerQR() {
+            if (cameraScannerStream) {
+                cameraScannerStream.getTracks().forEach(track => track.stop());
+                cameraScannerStream = null;
+            }
+            cameraAnswerScannerVideo.srcObject = null;
+            cameraScanAnswerContainer.classList.add('hidden');
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            updateStatus("Camera QR scanning for answer cancelled.");
+        }
+
+        // --- WebRTC Signaling and Connection Logic ---
+
+        function initializePeerConnection() {
+            if (pc) { // Close existing connection if any
+                pc.close();
+                pc = null;
+            }
+            pc = new RTCPeerConnection(iceConfiguration);
+            updateStatus("PeerConnection initialized.");
+
+            pc.onicecandidate = event => {
+                if (event.candidate) {
+                    // ICE candidates will be included in the SDP.
+                    // For QR code signaling, we typically wait for icegatheringstate 'complete'.
+                    updateStatus("ICE candidate generated.");
+                } else {
+                    updateStatus("All ICE candidates gathered.");
+                    if (role === 'camera' && pc.localDescription && pc.localDescription.type === 'offer') {
+                        qrOffer.makeCode(JSON.stringify(pc.localDescription));
+                        cameraOfferQrCodeContainer.classList.remove('hidden');
+                        updateStatus("Offer QR code generated. Scan with viewer device.");
+                        scanAnswerButton.classList.remove('hidden'); // Show button to scan viewer's answer
+                    } else if (role === 'viewer' && pc.localDescription && pc.localDescription.type === 'answer') {
+                        qrAnswer.makeCode(JSON.stringify(pc.localDescription));
+                        viewerAnswerQrCodeContainer.classList.remove('hidden');
+                        updateStatus("Answer QR code generated. Show to camera device.");
+                    }
+                }
+            };
+
+            pc.onicegatheringstatechange = () => {
+                updateStatus(`ICE gathering state: ${pc.iceGatheringState}`);
+                // The 'else' part of onicecandidate handles when gathering is complete.
+            };
+
+            pc.oniceconnectionstatechange = () => {
+                updateStatus(`ICE connection state: ${pc.iceConnectionState}`);
+                if (pc.iceConnectionState === 'connected') {
+                    updateStatus("WebRTC connection established!");
+                    if(role === 'camera') {
+                        cameraOfferQrCodeContainer.classList.add('hidden');
+                        cameraScanAnswerContainer.classList.add('hidden');
+                        if (cameraScannerStream) stopScanAnswerQR();
+                    } else {
+                        viewerScanOfferContainer.classList.add('hidden');
+                        if(viewerScannerStream) stopScanOfferQR();
+                    }
+                }
+                if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed') {
+                    updateStatus(`Connection failed or closed. State: ${pc.iceConnectionState}. Please restart.`);
+                    // Basic cleanup
+                    if (localStream) {
+                        localStream.getTracks().forEach(track => track.stop());
+                        localStream = null;
+                    }
+                    if (remoteVideo.srcObject) {
+                        remoteVideo.srcObject.getTracks().forEach(track => track.stop());
+                        remoteVideo.srcObject = null;
+                    }
+                    if (pc) {
+                        pc.close();
+                        pc = null;
+                    }
+                }
+            };
+
+            pc.ontrack = event => {
+                updateStatus("Remote track received!");
+                if (remoteVideo.srcObject !== event.streams[0]) {
+                    remoteVideo.srcObject = event.streams[0];
+                    updateStatus("Remote stream added to video element.");
+                    viewerMuteButton.textContent = remoteVideo.muted ? "Unmute Remote" : "Mute Remote";
+                }
+            };
+
+            if (role === 'camera' && localStream) {
+                localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+                updateStatus("Local stream added to PeerConnection for camera role.");
+            }
+        }
+
+        // --- Camera Mode Specific Functions ---
+        let currentCameraDeviceId = null;
+        let videoDevices = [];
+
+        async function getConnectedVideoDevices() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                videoDevices = devices.filter(device => device.kind === 'videoinput');
+                if (videoDevices.length > 1) {
+                    switchCameraButton.classList.remove('hidden');
+                } else {
+                    switchCameraButton.classList.add('hidden');
+                }
+            } catch (e) {
+                updateStatus(`Error enumerating devices: ${e.toString()}`);
+            }
+        }
+
+
+        async function startLocalStream(deviceId) {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            const constraints = {
+                video: { deviceId: deviceId ? { exact: deviceId } : undefined, width: { ideal: 640 }, height: { ideal: 480 } },
+                audio: true
+            };
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                localVideo.srcObject = localStream;
+                currentCameraDeviceId = localStream.getVideoTracks()[0].getSettings().deviceId;
+                updateStatus("Local camera stream started.");
+                await getConnectedVideoDevices(); // Update device list
+
+                // If PC exists and is connected or connecting, update the track
+                if (pc && (pc.signalingState !== "closed")) {
+                    const videoTrack = localStream.getVideoTracks()[0];
+                    const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                    if (sender) {
+                        await sender.replaceTrack(videoTrack);
+                        updateStatus("Video track updated on existing connection.");
+                    } else {
+                         pc.addTrack(videoTrack, localStream);
+                         updateStatus("Video track added to existing connection.");
+                    }
+                }
+
+
+            } catch (e) {
+                updateStatus(`Error accessing media devices: ${e.toString()}`);
+            }
+        }
+
+        startStreamingButton.onclick = async () => {
+            if (!localStream) {
+                await startLocalStream(); // Start with default camera if not already started
+            }
+            if (!localStream) {
+                updateStatus("Cannot start streaming without a local camera stream.");
+                return;
+            }
+
+            initializePeerConnection(); // Initialize or re-initialize
+
+            // Add tracks if not already added (e.g. if PC was re-initialized)
+            // Check senders to avoid adding tracks multiple times if pc already had them
+            let videoTrackAdded = pc.getSenders().some(s => s.track && s.track.kind === 'video');
+            let audioTrackAdded = pc.getSenders().some(s => s.track && s.track.kind === 'audio');
+
+            localStream.getTracks().forEach(track => {
+                if (track.kind === 'video' && !videoTrackAdded) {
+                    pc.addTrack(track, localStream);
+                } else if (track.kind === 'audio' && !audioTrackAdded) {
+                    pc.addTrack(track, localStream);
+                }
+            });
+
+            try {
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                updateStatus("Offer created and set as local description. Waiting for ICE candidates...");
+                // QR code generation is now handled by onicecandidate when iceGatheringState is complete
+            } catch (e) {
+                updateStatus(`Error creating offer: ${e.toString()}`);
+            }
+        };
+
+        scanAnswerButton.onclick = () => {
+            cameraOfferQrCodeContainer.classList.add('hidden'); // Hide offer QR
+            cameraScanAnswerContainer.classList.remove('hidden');
+            startQRScanner(cameraAnswerScannerVideo, decodedText => {
+                if (decodedText) {
+                    stopScanAnswerQR(); // Stop scanning once a QR is found
+                    try {
+                        const answer = JSON.parse(decodedText);
+                        if (answer && answer.type === 'answer' && answer.sdp) {
+                            pc.setRemoteDescription(new RTCSessionDescription(answer))
+                                .then(() => updateStatus("Remote description (answer) set successfully."))
+                                .catch(e => updateStatus(`Error setting remote description: ${e.toString()}`));
+                        } else {
+                            updateStatus("Scanned QR is not a valid answer SDP.");
+                        }
+                    } catch (e) {
+                        updateStatus(`Error parsing answer from QR: ${e.toString()}. Scanned data: ${decodedText}`);
+                    }
+                }
+            }, 'camera');
+            updateStatus("Scanning for viewer's answer QR code...");
+        };
+
+        cameraMuteButton.onclick = () => {
+            if (!localStream) return;
+            const audioTrack = localStream.getAudioTracks()[0];
+            if (audioTrack) {
+                audioTrack.enabled = !audioTrack.enabled;
+                cameraMuteButton.textContent = audioTrack.enabled ? 'Mute' : 'Unmute';
+                updateStatus(audioTrack.enabled ? 'Camera unmuted.' : 'Camera muted.');
+            }
+        };
+
+        switchCameraButton.onclick = async () => {
+            if (videoDevices.length > 1) {
+                const currentIndex = videoDevices.findIndex(device => device.deviceId === currentCameraDeviceId);
+                const nextIndex = (currentIndex + 1) % videoDevices.length;
+                currentCameraDeviceId = videoDevices[nextIndex].deviceId;
+                updateStatus(`Switching to camera: ${videoDevices[nextIndex].label || 'Unknown Camera'}`);
+                await startLocalStream(currentCameraDeviceId);
+            } else {
+                updateStatus("No other cameras available to switch.");
+            }
+        };
+
+
+        // --- QR Code Scanning Generic Function ---
+        function startQRScanner(videoElement, callback, scannerRole) {
+            let currentStreamRef = (scannerRole === 'camera') ? cameraScannerStream : viewerScannerStream;
+
+            if (currentStreamRef) { // Stop any existing scanner stream for this role
+                 if (scannerRole === 'camera') stopScanAnswerQR(); else stopScanOfferQR();
+            }
+
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+                .then(stream => {
+                    if (scannerRole === 'camera') cameraScannerStream = stream; else viewerScannerStream = stream;
+                    videoElement.srcObject = stream;
+                    videoElement.onloadedmetadata = () => {
+                        videoElement.play();
+                        scanQRCode(videoElement, callback); // Pass the specific video element
+                    };
+                })
+                .catch(err => {
+                    updateStatus(`Error accessing camera for QR scanning: ${err.toString()}`);
+                    if (scannerRole === 'camera') cameraScanAnswerContainer.classList.add('hidden');
+                    else viewerScanOfferContainer.classList.add('hidden');
+                });
+        }
+
+        function scanQRCode(videoElement, callback) { // Takes videoElement as an argument
+            const canvasElement = document.createElement('canvas');
+            const canvas = canvasElement.getContext('2d');
+
+            function tick() {
+                let currentStream = null;
+                if (videoElement === cameraAnswerScannerVideo && cameraScannerStream) {
+                    currentStream = cameraScannerStream;
+                } else if (videoElement === viewerOfferScannerVideo && viewerScannerStream) {
+                    currentStream = viewerScannerStream;
+                }
+
+                if (currentStream && videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
+                    canvasElement.height = videoElement.videoHeight;
+                    canvasElement.width = videoElement.videoWidth;
+                    canvas.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+                    try {
+                        const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                            inversionAttempts: "dontInvert",
+                        });
+                        if (code) {
+                            callback(code.data); // Call the callback with the decoded data
+                            return; // Stop scanning
+                        }
+                    } catch (e) {
+                        // jsQR might throw error on invalid images, ignore and continue scanning
+                    }
+                }
+                animationFrameId = requestAnimationFrame(tick);
+            }
+            animationFrameId = requestAnimationFrame(tick);
+        }
+
+
+        // Initial setup calls
+        document.addEventListener('DOMContentLoaded', () => {
+            // For camera mode, try to enumerate devices early if possible,
+            // but full functionality depends on user interaction for permissions.
+            if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+                 getConnectedVideoDevices(); // Try to populate switch camera button early
+            }
+        });
+
+        // --- End of Camera Mode Implementation ---
+
+        // --- Viewer Mode Specific Functions ---
+        scanOfferButton.onclick = () => {
+            viewerAnswerQrCodeContainer.classList.add('hidden'); // Hide any previous answer QR
+            viewerScanOfferContainer.classList.remove('hidden');
+            startQRScanner(viewerOfferScannerVideo, async (decodedText) => {
+                if (decodedText) {
+                    stopScanOfferQR(); // Stop video feed for QR scanning
+                    try {
+                        const offer = JSON.parse(decodedText);
+                        if (offer && offer.type === 'offer' && offer.sdp) {
+                            updateStatus("Offer QR scanned successfully. Processing...");
+                            initializePeerConnection(); // Initialize or re-initialize
+
+                            await pc.setRemoteDescription(new RTCSessionDescription(offer));
+                            updateStatus("Remote description (offer) set.");
+
+                            const answer = await pc.createAnswer();
+                            await pc.setLocalDescription(answer);
+                            updateStatus("Answer created and set as local description. Waiting for ICE candidates to generate QR...");
+                            // Answer QR code generation is now handled by onicecandidate when iceGatheringState is complete
+                        } else {
+                            updateStatus("Scanned QR is not a valid offer SDP.");
+                        }
+                    } catch (e) {
+                        updateStatus(`Error processing offer from QR: ${e.toString()}. Scanned data: ${decodedText}`);
+                    }
+                }
+            }, 'viewer');
+            updateStatus("Scanning for camera's offer QR code...");
+        };
+
+        viewerMuteButton.onclick = () => {
+            if (remoteVideo.srcObject) { // Check if there's a remote stream
+                remoteVideo.muted = !remoteVideo.muted;
+                viewerMuteButton.textContent = remoteVideo.muted ? 'Unmute Remote' : 'Mute Remote';
+                updateStatus(remoteVideo.muted ? 'Remote audio muted.' : 'Remote audio unmuted.');
+            } else {
+                updateStatus("No remote stream to mute/unmute.");
+            }
+        };
+
+        // --- End of Viewer Mode Implementation ---
+    </script>
+</body>
+</html>
